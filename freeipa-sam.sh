@@ -6,6 +6,7 @@ if [ -e "$rcfile" ]; then
 fi
 ssleval=true
 prefix=ldaps
+[ "$kerberos" == "true" ] && kerberos=true || kerberos=false;
 passeval() { [ -z $bindpass ] && passeval="UNSET!" || passeval="SET!"; }
 ssleval() { [ "$prefix" == "ldaps" ] && ssleval="true" || ssleval="false"; }
 actionseval() { [ "$ldapserver" ] && [ "$binduser" ] && [ "$domain" ] && [ "$passeval" == "SET!" ] && actionseval="ready" || actionseval="conditions not yet met" && return 1; }
@@ -20,7 +21,9 @@ domain="$domain"
 ldapdomain="$ldapdomain"
 ssleval=$ssleval
 prefix="$prefix"
+kerberos="$kerberos"
 EOF
+  rcfile_on=true
 }
 
 menu() {
@@ -34,7 +37,8 @@ menu() {
 2.) domain=$domain (ldapdomain=$ldapdomain)
 3.) binduser=$binduser
 4.) bindpass=$passeval
-5.) ssl=$ssleval
+5.) ssl=$ssleval (toggle)
+6.) kerberos=$kerberos (toggle)
 
 Actions ($actionseval):
   add | rm | ls | info | passwd | save
@@ -50,6 +54,10 @@ domain2ldapdomain() {
 }
 
 dotask() {
+    
+  # do not use binduser and bindpass if kerberos is set
+  [ "$kerberos" == "true" ] && creds="-Y GSSAPI" || creds="-D \"$binduser\" -w \"$bindpass\""
+
   case $1 in
 # Setup
     1|ldapserver)
@@ -73,6 +81,11 @@ dotask() {
       ;;
     5|ssl)
       [ "$prefix" == "ldaps" ] && prefix=ldap || prefix=ldaps
+      results="Prefix toggled to $prefix"
+      ;;
+    6|kerberos)
+      [ "$kerberos" == "true" ] && kerberos="false" || kerberos="true"
+      results="Kerberos toggled to $kerberos"
       ;;
 
 # Actions
@@ -80,11 +93,11 @@ dotask() {
     #   results=$(ldapsearch "$prefix""://""$ldapserver" -b "$ldapdomain" -D "$binduser" -w "$bindpass")
     #   ;;
     ls)
-      results=$(ldapsearch -H "$prefix""://""$ldapserver" -b "cn=sysaccounts,cn=etc,$ldapdomain" -D "$binduser" -w "$bindpass" "(uid=*)" "dn" | grep 'dn: uid')
+      results=$(ldapsearch -H "$prefix""://""$ldapserver" -b "cn=sysaccounts,cn=etc,$ldapdomain" $creds "(uid=*)" "dn" | grep 'dn: uid')
       ;;
     info)
       [ "$2" ] && local uid="$2" || uid="*"
-      results=$(ldapsearch -H "$prefix""://""$ldapserver" -b "cn=sysaccounts,cn=etc,$ldapdomain" -D "$binduser" -w "$bindpass" "(uid=$uid)" "uid" "memberOf" "passwordExpirationTime")
+      results=$(ldapsearch -H "$prefix""://""$ldapserver" -b "cn=sysaccounts,cn=etc,$ldapdomain" $creds "(uid=$uid)" "uid" "memberOf" "passwordExpirationTime")
       ;;
     add)
       local uid password
@@ -102,14 +115,14 @@ objectclass: simplesecurityobject
 uid: $uid
 userPassword: $password
 passwordExpirationTime: ${expire}031407Z
-nsIdleTimeout: 0" | ldapmodify -H "$prefix""://""$ldapserver" -D "$binduser" -w "$bindpass" && results="Submitted." || results="Error."
+nsIdleTimeout: 0" | ldapmodify -H "$prefix""://""$ldapserver" $creds && results="Submitted." || results="Error."
       ;;
     rm)
       local uid
       [ "$2" ] && local uid="$2" || read -p "uid of user to remove=" uid
 echo -E "\
 dn: uid=$uid,cn=sysaccounts,cn=etc,$ldapdomain
-changetype: delete" | ldapmodify -H "$prefix""://""$ldapserver" -D "$binduser" -w "$bindpass" && results="Submitted." || results="Error."
+changetype: delete" | ldapmodify -H "$prefix""://""$ldapserver" $creds && results="Submitted." || results="Error."
       ;;
     passwd)
     local uid password
@@ -126,13 +139,14 @@ replace: userPassword
 userPassword: $password
 -
 replace: passwordExpirationTime
-passwordExpirationTime: ${expire}031407Z" | ldapmodify -H "$prefix""://""$ldapserver" -D "$binduser" -w "$bindpass" && results="Submitted." || results="Error."
+passwordExpirationTime: ${expire}031407Z" | ldapmodify -H "$prefix""://""$ldapserver" $creds && results="Submitted." || results="Error."
       ;;
     save)
       save
+      results="Configuration saved."
       ;;
     exit)
-      if [ $rcfile_on == "true" ]; then save; fi
+      if [ "$rcfile_on" == "true" ]; then save; fi
       exit
       ;;
     "")
