@@ -6,7 +6,7 @@ if [ -e "$rcfile" ]; then
 fi
 ssleval=true
 prefix=ldaps
-[ "$kerberos" == "true" ] && kerberos=true || kerberos=false;
+[ "$kerberos" == "true" ] || kerberos=false;
 passeval() { [ -z $bindpass ] && passeval="UNSET!" || passeval="SET!"; }
 ssleval() { [ "$prefix" == "ldaps" ] && ssleval="true" || ssleval="false"; }
 actionseval() {
