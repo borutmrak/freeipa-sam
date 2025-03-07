@@ -9,7 +9,15 @@ prefix=ldaps
 [ "$kerberos" == "true" ] && kerberos=true || kerberos=false;
 passeval() { [ -z $bindpass ] && passeval="UNSET!" || passeval="SET!"; }
 ssleval() { [ "$prefix" == "ldaps" ] && ssleval="true" || ssleval="false"; }
-actionseval() { [ "$ldapserver" ] && [ "$binduser" ] && [ "$domain" ] && [ "$passeval" == "SET!" ] && actionseval="ready" || actionseval="conditions not yet met" && return 1; }
+actionseval() {
+   if [ -z "$ldapserver" ]; then actionseval="LDAP server setting is required" && return 1; fi
+   if [ -z "$domain"]; then actionseval="domain setting is required" && return 1; fi
+   if [ "$kerberos" == "true" ]; then
+     actionseval="ready" && return 1
+   else
+     [ "$binduser" ] && [ "$passeval" == "SET!" ] && actionseval="ready" || actionseval="credentials are required" && return 1;
+   fi
+}
 
 save() {
   test -d "${HOME}/.ipa" || mkdir -p "${HOME}/.ipa"
