@@ -9,6 +9,8 @@ FreeIPA currently has no intuitive way to create, view, edit, or otherwise manag
 
 Usage is pretty straightforward, it is highly-recommended that you leave SSL enabled and configure the prerequisites before attempting an action.  
 
+If enabling Kerberos, you must get a ticket with `kinit username@REALM` before running this script. Bind user and password are not used in this case and the user selected must be in the `admins` group or have an ACL set in the directory to be allowed to manage system accounts.  
+
 ## Actions  
 ### `add [username]`  
 `add` creates system accounts.  
